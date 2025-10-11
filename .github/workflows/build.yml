@@ -138,3 +138,26 @@ jobs:
         with:
           path: backend-cuda-${{ needs.find.outputs.build }}-windows-x64.zip
           name: backend-cuda-windows-x64
+
+  windows-hip:
+    needs: find
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Windows HIP release
+        run: curl -LO https://github.com/ggml-org/llama.cpp/releases/download/${{ needs.find.outputs.build }}/llama-${{ needs.find.outputs.build }}-bin-win-hip-radeon-x64.zip
+
+      - name: Unzip Windows HIP release
+        run: unzip llama-${{ needs.find.outputs.build }}-bin-win-hip-radeon-x64.zip
+
+      - name: Pack Windows HIP backend
+        run: |
+          mkdir hip
+          mv ggml-hip.dll hipblas*.dll rocblas.dll hipblaslt rocblas LICENSE* hip/.
+          cd hip
+          zip -r ../backend-hip-${{ needs.find.outputs.build }}-windows-x64.zip *
+
+      - name: Upload HIP backend
+        uses: actions/upload-artifact@v4
+        with:
+          path: backend-hip-${{ needs.find.outputs.build }}-windows-x64.zip
+          name: backend-hip-windows-x64
