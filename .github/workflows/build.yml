@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  linux:
+  linux-cuda13:
     runs-on: ubuntu-22.04
     steps:
       - name: Check out the repository
@@ -26,9 +26,27 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: llama.cpp
+          build-args: "CUDA_VERSION=13.0.1"
           file: llama.cpp/.devops/cuda.Dockerfile
           target: server
           tags: llama-server
 
       - name: List Docker images
         run: docker images
+
+      - name: Create llama-server container
+        run: docker create --name llama-server llama-server
+
+      - name: Copy build artifacts from container
+        run: docker cp llama-server:/app .
+
+      - name: Pack build artifacts
+        run: |
+          cp llama.cpp/LICENSE app/.
+          zip -r llama-server-linux-x64-cuda.zip app/*
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          path: llama-server-linux-x64-cuda13.zip
+          name: llama-server-linux-x64-cuda13.zip
