@@ -26,7 +26,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: llama.cpp
-          file: .devops/cuda.Dockerfile
+          file: llama.cpp/.devops/cuda.Dockerfile
           target: server
           tags: llama-server
 
