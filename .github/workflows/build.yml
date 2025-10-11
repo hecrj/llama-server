@@ -13,6 +13,9 @@ jobs:
   linux-cuda:
     runs-on: ubuntu-22.04
     steps:
+      - name: Clone latest llama.cpp
+        run: git clone https://github.com/ggerganov/llama.cpp --depth=1
+
       - name: Pull `llama-server` image
         run: docker pull ghcr.io/ggml-org/llama.cpp:server-cuda
 
@@ -24,9 +27,14 @@ jobs:
 
       - name: Copy CUDA runtime from container
         run: |
-          docker cp -L llama-server:/usr/local/cuda-12.4/targets/x86_64-linux/lib/libcudart.so.12 app/.
-          docker cp -L llama-server:/usr/local/cuda-12.4/targets/x86_64-linux/lib/libcublas.so.12 app/.
-          docker cp -L llama-server:/usr/local/cuda-12.4/targets/x86_64-linux/lib/libcublasLt.so.12 app/.
+          CUDA_VERSION=$(docker run --rm --entrypoint "" ghcr.io/ggml-org/llama.cpp:server-cuda \
+              bash -c "ls /usr/local | grep '^cuda-[0-9]\+\.[0-9]\+$' | sort -V | tail -n1 | sed 's/cuda-//'")
+
+          CUDA_MAJOR_VERSION=${CUDA_VERSION%%.*}
+
+          docker cp -L llama-server:/usr/local/cuda-$CUDA_VERSION/targets/x86_64-linux/lib/libcudart.so.$CUDA_MAJOR_VERSION app/.
+          docker cp -L llama-server:/usr/local/cuda-$CUDA_VERSION/targets/x86_64-linux/lib/libcublas.so.$CUDA_MAJOR_VERSION app/.
+          docker cp -L llama-server:/usr/local/cuda-$CUDA_VERSION/targets/x86_64-linux/lib/libcublasLt.so.$CUDA_MAJOR_VERSION app/.
 
       - name: Set $ORIGIN as RPATH in `llama-server`
         run: patchelf --set-rpath '$ORIGIN' app/llama-server
