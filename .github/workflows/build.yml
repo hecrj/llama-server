@@ -161,3 +161,29 @@ jobs:
         with:
           path: backend-hip-${{ needs.find.outputs.build }}-windows-x64.zip
           name: backend-hip-windows-x64
+
+  macos:
+    needs: find
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [arm64, x64]
+    steps:
+      - name: Download macOS release
+        run: curl -LO https://github.com/ggml-org/llama.cpp/releases/download/${{ needs.find.outputs.build }}/llama-${{ needs.find.outputs.build }}-bin-macos-${{ matrix.arch }}.zip
+
+      - name: Unzip macOS release
+        run: unzip llama-${{ needs.find.outputs.build }}-bin-macos-${{ matrix.arch }}.zip
+
+      - name: Pack llama-server
+        run: |
+          mkdir app
+          mv build/bin/llama-server build/bin/*.dylib build/bin/LICENSE* app/.
+          cd app
+          zip -r ../llama-server-${{ needs.find.outputs.build }}-macos-${{ matrix.arch }}.zip *
+
+      - name: Upload llama-server
+        uses: actions/upload-artifact@v4
+        with:
+          path: llama-server-${{ needs.find.outputs.build }}-macos-${{ matrix.arch }}.zip
+          name: llama-server-macos-${{ matrix.arch }}
