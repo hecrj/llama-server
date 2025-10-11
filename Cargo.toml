@@ -1,0 +1,11 @@
+[package]
+name = "llama-server"
+version = "0.1.0-dev"
+edition = "2024"
+description = "Download, embed, and run llama.cpp in your Rust projects"
+license = "MIT"
+
+[features]
+embedded = []
+
+[dependencies]

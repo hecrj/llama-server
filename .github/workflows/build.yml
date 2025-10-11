@@ -1,0 +1,33 @@
+name: Build
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v5
+
+      - name: Clone latest llama.cpp
+        run: git clone https://github.com/ggerganov/llama.cpp --depth=1 .
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build `llama-server`
+        uses: docker/build-push-action@v6
+        with:
+          context: llama.cpp
+          file: .devops/cuda.Dockerfile
+          target: server
+          tags: llama-server
+
+      - name: List Docker images
+        run: docker images
