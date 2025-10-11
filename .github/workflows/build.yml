@@ -10,35 +10,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  linux-cuda13:
+  linux-cuda:
     runs-on: ubuntu-22.04
     steps:
-      - name: Check out the repository
-        uses: actions/checkout@v5
-
-      - name: Clone latest llama.cpp
-        run: git clone https://github.com/ggerganov/llama.cpp --depth=1
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build `llama-server`
-        uses: docker/build-push-action@v6
-        with:
-          context: llama.cpp
-          build-args: "CUDA_VERSION=13.0.1"
-          file: llama.cpp/.devops/cuda.Dockerfile
-          target: server
-          tags: llama-server
-
-      - name: List Docker images
-        run: docker images
+      - name: Pull `llama-server` image
+        run: docker pull ghcr.io/ggml-org/llama.cpp:server-cuda
 
       - name: Create llama-server container
-        run: docker create --name llama-server llama-server
+        run: docker create --name llama-server ghcr.io/ggml-org/llama.cpp:server-cuda
 
       - name: Copy build artifacts from container
         run: docker cp llama-server:/app .
+
+      - name: Copy CUDA runtime from container
+        run: |
+          docker cp -L llama-server:/usr/local/cuda-12.9/targets/x86_64-linux/lib/libcudart.so.12 app/.
+          docker cp -L llama-server:/usr/local/cuda-12.9/targets/x86_64-linux/lib/libcublas.so.12 app/.
+          docker cp -L llama-server:/usr/local/cuda-12.9/targets/x86_64-linux/lib/libcublasLt.so.12 app/.
+
+      - name: Set $ORIGIN as RPATH in `llama-server`
+        run: patchelf --set-rpath '$ORIGIN' app/llama-server
 
       - name: Pack build artifacts
         run: |
@@ -48,5 +39,5 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          path: llama-server-linux-x64-cuda13.zip
-          name: llama-server-linux-x64-cuda13.zip
+          path: llama-server-linux-x64-cuda.zip
+          name: llama-server-linux-x64-cuda.zip
