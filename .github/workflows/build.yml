@@ -1,9 +1,11 @@
 name: Build
 on:
-  workflow_dispatch: {}
   push:
     branches:
       - master
+  workflow_dispatch: {}
+  schedule:
+    - cron: '0 0 * * *'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref && github.ref || github.run_id }}
