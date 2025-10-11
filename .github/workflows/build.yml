@@ -10,8 +10,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  find:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.get_latest.outputs.tag }}
+    steps:
+      - name: Get latest build
+        id: get_latest
+        run: |
+          build=$(curl -s https://api.github.com/repos/ggml-org/llama.cpp/releases/latest | jq -r .tag_name)
+          echo "llama.cpp latest build: $build"
+          echo "tag=$build" >> "$GITHUB_OUTPUT"
+
   linux-cuda:
-    runs-on: ubuntu-22.04
+    needs: find
+    runs-on: ubuntu-latest
     steps:
       - name: Clone latest llama.cpp
         run: git clone https://github.com/ggerganov/llama.cpp --depth=1
@@ -50,22 +63,22 @@ jobs:
         run: |
           cp llama.cpp/LICENSE app/.
           cd app
-          zip -r ../llama-server-linux-x64.zip *
+          zip -r ../llama-server-${{ needs.find.outputs.build }}-linux-x64.zip *
 
       - name: Pack CUDA backend
         run: |
           cp llama.cpp/LICENSE cuda/.
           cd cuda
-          zip -r ../llama-server-linux-x64-cuda.zip *
+          zip -r ../backend-cuda-${{ needs.find.outputs.build }}-linux-x64.zip *
 
       - name: Upload llama-server
         uses: actions/upload-artifact@v4
         with:
-          path: llama-server-linux-x64.zip
+          path: llama-server-${{ needs.find.outputs.build }}-linux-x64.zip
           name: llama-server-linux-x64
 
       - name: Upload CUDA backend
         uses: actions/upload-artifact@v4
         with:
-          path: llama-server-linux-x64-cuda.zip
-          name: llama-server-linux-x64-cuda
+          path: backend-cuda-${{ needs.find.outputs.build }}-linux-x64.zip
+          name: backend-cuda-linux-x64
