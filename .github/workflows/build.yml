@@ -96,8 +96,7 @@ jobs:
       - name: Pack llama-server
         run: |
           mkdir app
-          mv *.dll app/.
-          mv llama-server.exe app/.
+          mv llama-server.exe *.dll LICENSE* app/.
           cd app
           zip -r ../llama-server-${{ needs.find.outputs.build }}-windows-x64.zip *
 
@@ -106,3 +105,36 @@ jobs:
         with:
           path: llama-server-${{ needs.find.outputs.build }}-windows-x64.zip
           name: llama-server-windows-x64
+
+  windows-cuda:
+    needs: find
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Windows CUDA release
+        run: |
+          version=$(curl -s https://api.github.com/repos/ggml-org/llama.cpp/releases/latest | \
+            jq -r '.assets | map(.name | capture("cudart-.*-cuda-(?<version>[^-]+)-")) | .[0] | .version')
+
+          curl -L -o llama-server-windows-x64.zip \
+            https://github.com/ggml-org/llama.cpp/releases/download/${{ needs.find.outputs.build }}/llama-${{ needs.find.outputs.build }}-bin-win-cuda-$version-x64.zip
+
+          curl -L -o cudart-windows-x64.zip \
+            https://github.com/ggml-org/llama.cpp/releases/download/${{ needs.find.outputs.build }}/cudart-llama-bin-win-cuda-$version-x64.zip
+
+      - name: Unzip Windows CUDA release
+        run: |
+          unzip llama-server-windows-x64.zip
+          unzip cudart-windows-x64.zip
+
+      - name: Pack Windows CUDA backend
+        run: |
+          mkdir cuda
+          mv ggml-cuda.dll cudart*.dll cublas*.dll LICENSE* cuda/.
+          cd cuda
+          zip -r ../backend-cuda-${{ needs.find.outputs.build }}-windows-x64.zip *
+
+      - name: Upload CUDA backend
+        uses: actions/upload-artifact@v4
+        with:
+          path: backend-cuda-${{ needs.find.outputs.build }}-windows-x64.zip
+          name: backend-cuda-windows-x64
