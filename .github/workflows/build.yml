@@ -83,67 +83,58 @@ jobs:
           path: backend-cuda-${{ needs.find.outputs.build }}-linux-x64.zip
           name: backend-cuda-linux-x64
 
-  # linux-hip:
-  #   needs: find
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Free Disk Space (Ubuntu)
-  #       uses: ggml-org/free-disk-space@v1.3.1
-  #       with:
-  #         tool-cache: false
-  #         android: true
-  #         dotnet: true
-  #         haskell: true
-  #         large-packages: true
-  #         docker-images: true
-  #         swap-storage: true
+  linux-hip:
+    needs: find
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: ggml-org/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
 
-  #     - name: Clone llama.cpp@${{ needs.find.outputs.build }}
-  #       run: git clone https://github.com/ggerganov/llama.cpp --branch=${{ needs.find.outputs.build }} --depth=1
+      - name: Clone llama.cpp@${{ needs.find.outputs.build }}
+        run: git clone https://github.com/ggerganov/llama.cpp --branch=${{ needs.find.outputs.build }} --depth=1
 
-  #     - name: Set up Docker Buildx
-  #       uses: docker/setup-buildx-action@v3
+      - name: Build `llama-server`
+        run: docker build -f llama.cpp/.devops/rocm.Dockerfile --target server --tag llama-server llama.cpp
 
-  #     - name: Build `llama-server`
-  #       uses: docker/build-push-action@v6
-  #       with:
-  #         context: llama.cpp
-  #         file: llama.cpp/.devops/rocm.Dockerfile
-  #         target: server
-  #         outputs: type=image
-  #         tags: llama-server
+      - name: Copy HIP shared libraries
+        run: |
+          docker run --name hip --entrypoint "" llama-server \
+            bash -c "ldd /app/libggml-hip.so | awk '/=>/ {print \$3}' | grep -E 'rocm' | xargs -I{} cp -v {} /app/."
 
-  #     - name: Copy HIP shared libraries
-  #       run: |
-  #         docker run --name hip --entrypoint "" llama-server \
-  #           bash -c "ldd /app/libggml-hip.so | awk '/=>/ {print \$3}' | grep -E 'rocm' | xargs -I{} cp -v {} /app/."
+      - name: Extract `llama-server` from container
+        run: docker cp hip:/app .
 
-  #     - name: Extract `llama-server` from container
-  #       run: docker cp hip:/app .
+      - name: Copy libnuma.so library
+        run: docker cp -L hip:/usr/lib/x86_64-linux-gnu/libnuma.so.1 app/.
 
-  #     - name: Copy libnuma.so library
-  #       run: docker cp -L hip:/usr/lib/x86_64-linux-gnu/libnuma.so.1 app/.
+      - name: Delete container and image
+        run: |
+          docker rm hip
+          docker rmi llama-server
 
-  #     - name: Delete container and image
-  #       run: |
-  #         docker rm hip
-  #         docker rmi llama-server
+      - name: Set $ORIGIN as RPATH for `llama-server` and shared libraries
+        run: patchelf --set-rpath '$ORIGIN' app/llama-server app/*.so*
 
-  #     - name: Set $ORIGIN as RPATH for `llama-server` and shared libraries
-  #       run: patchelf --set-rpath '$ORIGIN' app/llama-server app/*.so*
+      - name: Pack HIP backend
+        run: |
+          mkdir hip
+          mv app/libggml-hip.so app/*.so.* llama.cpp/LICENSE hip/.
+          cd hip
+          zip -r ../backend-hip-${{ needs.find.outputs.build }}-linux-x64.zip *
 
-  #     - name: Pack HIP backend
-  #       run: |
-  #         mkdir hip
-  #         mv app/libggml-hip.so app/*.so.* llama.cpp/LICENSE hip/.
-  #         cd hip
-  #         zip -r ../backend-hip-${{ needs.find.outputs.build }}-linux-x64.zip *
-
-  #     - name: Upload HIP backend
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         path: backend-hip-${{ needs.find.outputs.build }}-linux-x64.zip
-  #         name: backend-hip-linux-x64
+      - name: Upload HIP backend
+        uses: actions/upload-artifact@v4
+        with:
+          path: backend-hip-${{ needs.find.outputs.build }}-linux-x64.zip
+          name: backend-hip-linux-x64
 
   macos:
     needs: find
