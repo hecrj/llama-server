@@ -24,9 +24,9 @@ jobs:
 
       - name: Copy CUDA runtime from container
         run: |
-          docker cp -L llama-server:/usr/local/cuda-12.9/targets/x86_64-linux/lib/libcudart.so.12 app/.
-          docker cp -L llama-server:/usr/local/cuda-12.9/targets/x86_64-linux/lib/libcublas.so.12 app/.
-          docker cp -L llama-server:/usr/local/cuda-12.9/targets/x86_64-linux/lib/libcublasLt.so.12 app/.
+          docker cp -L llama-server:/usr/local/cuda-12.4/targets/x86_64-linux/lib/libcudart.so.12 app/.
+          docker cp -L llama-server:/usr/local/cuda-12.4/targets/x86_64-linux/lib/libcublas.so.12 app/.
+          docker cp -L llama-server:/usr/local/cuda-12.4/targets/x86_64-linux/lib/libcublasLt.so.12 app/.
 
       - name: Set $ORIGIN as RPATH in `llama-server`
         run: patchelf --set-rpath '$ORIGIN' app/llama-server
