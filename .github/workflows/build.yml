@@ -36,16 +36,19 @@ jobs:
           docker cp -L llama-server:/usr/local/cuda-$CUDA_VERSION/targets/x86_64-linux/lib/libcublas.so.$CUDA_MAJOR_VERSION app/.
           docker cp -L llama-server:/usr/local/cuda-$CUDA_VERSION/targets/x86_64-linux/lib/libcublasLt.so.$CUDA_MAJOR_VERSION app/.
 
-      - name: Set $ORIGIN as RPATH in `llama-server`
-        run: patchelf --set-rpath '$ORIGIN' app/llama-server
+      - name: Set $ORIGIN as RPATH for `llama-server` and shared libraries
+        run: |
+          patchelf --set-rpath '$ORIGIN' app/llama-server
+          patchelf --set-rpath '$ORIGIN' app/*.so
 
       - name: Pack build artifacts
         run: |
           cp llama.cpp/LICENSE app/.
-          zip -r llama-server-linux-x64-cuda.zip app/*
+          cd app
+          zip -r ../llama-server-linux-x64-cuda.zip *
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           path: llama-server-linux-x64-cuda.zip
-          name: llama-server-linux-x64-cuda.zip
+          name: llama-server-linux-x64-cuda
