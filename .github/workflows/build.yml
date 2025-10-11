@@ -242,7 +242,7 @@ jobs:
           name: backend-hip-windows-x64
 
   release:
-    needs: [find, linux-cuda, macos, windows, windows-cuda, windows-hip]
+    needs: [find, linux-cuda, linux-hip, macos, windows, windows-cuda, windows-hip]
     if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
     permissions:
