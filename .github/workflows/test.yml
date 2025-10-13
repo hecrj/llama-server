@@ -5,6 +5,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       RUSTFLAGS: --deny warnings
+      LLAMA_SERVER_CACHE_DIR: cache
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]

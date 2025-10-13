@@ -6,6 +6,7 @@ use tokio::fs;
 use tokio::task;
 
 use std::collections::BTreeSet;
+use std::env;
 use std::io;
 use std::path::PathBuf;
 
@@ -18,11 +19,15 @@ pub struct Cache {
 impl Cache {
     pub fn new(build: Build) -> Self {
         Self {
-            path: directories::ProjectDirs::from("", "hecrj", "llama-server")
-                .expect("valid project directory")
-                .cache_dir()
-                .join(build.to_string())
-                .to_path_buf(),
+            path: env::var("LLAMA_SERVER_CACHE_DIR")
+                .map(PathBuf::from)
+                .unwrap_or_else(|_| {
+                    directories::ProjectDirs::from("", "hecrj", "llama-server")
+                        .expect("valid project directory")
+                        .cache_dir()
+                        .join(build.to_string())
+                        .to_path_buf()
+                }),
             build,
         }
     }
