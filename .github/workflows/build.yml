@@ -14,13 +14,18 @@ concurrency:
 jobs:
   find:
     runs-on: ubuntu-latest
+    permissions:
+      packages: read
     outputs:
       build: ${{ steps.get_latest.outputs.tag }}
     steps:
       - name: Get latest build
         id: get_latest
         run: |
-          build=$(curl -s https://api.github.com/repos/ggml-org/llama.cpp/releases/latest | jq -r .tag_name)
+          build=$(curl -s https://api.github.com/orgs/ggml-org/packages/container/llama.cpp/versions?per_page=100 \
+            --header 'authorization: Bearer ${{ secrets.GITHUB_TOKEN }}' | \
+            jq -r 'map(.metadata | .container | .tags | map(capture("server-cuda-(?<version>[^-]+)"))) | flatten | .[0] | .version')
+
           echo "llama.cpp latest build: $build"
           echo "tag=$build" >> "$GITHUB_OUTPUT"
 
@@ -29,13 +34,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone latest llama.cpp
-        run: git clone https://github.com/ggerganov/llama.cpp --depth=1
+        run: git clone https://github.com/ggerganov/llama.cpp --branch=${{ needs.find.outputs.build }} --depth=1
 
       - name: Pull `llama-server` image
-        run: docker pull ghcr.io/ggml-org/llama.cpp:server-cuda
+        run: docker pull ghcr.io/ggml-org/llama.cpp:server-cuda-${{ needs.find.outputs.build }}
 
       - name: Create llama-server container
-        run: docker create --name llama-server ghcr.io/ggml-org/llama.cpp:server-cuda
+        run: docker create --name llama-server ghcr.io/ggml-org/llama.cpp:server-cuda-${{ needs.find.outputs.build }}
 
       - name: Copy build artifacts from container
         run: docker cp llama-server:/app .
