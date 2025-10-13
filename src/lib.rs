@@ -11,10 +11,12 @@ use cache::Cache;
 
 use bitflags::bitflags;
 use sipper::{Sipper, Straw, sipper};
+use tokio::process;
+use tokio::time::{self, Duration};
 
 use std::fmt;
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Server {
@@ -62,9 +64,62 @@ impl Server {
         })
     }
 
-    pub async fn delete(_build: Build, _backends: Backends) -> Result<Self, Error> {
+    pub async fn boot(self, model: impl AsRef<Path>, settings: Settings) -> Result<Process, Error> {
+        let child = process::Command::new(self.executable)
+            .args(
+                format!(
+                    "--model {model} --host {host} --port {port} --gpu-layers {gpu_layers} --jinja",
+                    model = model.as_ref().display(),
+                    host = settings.host,
+                    port = settings.port,
+                    gpu_layers = settings.gpu_layers,
+                )
+                .split_whitespace(),
+            )
+            .kill_on_drop(true)
+            .spawn()?;
+
+        let url = format!("http://{}:{}", settings.host, settings.port);
+
+        loop {
+            if let Ok(response) = http::client().get(format!("{url}/health")).send().await {
+                if response.error_for_status().is_ok() {
+                    break;
+                }
+            }
+
+            time::sleep(Duration::from_secs(1)).await;
+        }
+
+        Ok(Process { url, _raw: child })
+    }
+
+    pub async fn delete(self) -> Result<Self, Error> {
         todo!()
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct Settings {
+    pub port: u32,
+    pub host: String,
+    pub gpu_layers: u32,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            port: 8080,
+            host: "127.0.0.1".to_owned(),
+            gpu_layers: 80,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Process {
+    pub url: String,
+    _raw: process::Child,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -155,14 +210,28 @@ impl Backends {
 mod tests {
     use super::*;
 
+    use tokio::fs;
+    use tokio::io;
+
     #[tokio::test]
     #[ignore]
     async fn it_works() -> Result<(), Error> {
+        const MODEL_URL: &str = "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-UD-Q4_K_XL.gguf?download=true";
+        const MODEL_FILE: &str = "Qwen3.gguf";
+
         let build = Build::latest().await.unwrap_or(Build::locked(6730));
-        let server = Server::download(build, Backends::empty()).await?;
+        let server = Server::download(build, Backends::all()).await?;
 
         assert_eq!(server.build, build);
-        assert_eq!(server.backends, Backends::empty());
+        assert_eq!(server.backends, Backends::all());
+
+        if !fs::try_exists(MODEL_FILE).await? {
+            let model = fs::File::create(MODEL_FILE).await?;
+            http::download(MODEL_URL, &mut io::BufWriter::new(model)).await?;
+        }
+
+        let process = server.boot(MODEL_FILE, Settings::default()).await?;
+        assert_eq!(process.url, "http://127.0.0.1:8080");
 
         Ok(())
     }

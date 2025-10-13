@@ -20,7 +20,7 @@ serde.version = "1"
 serde.features = ["derive"]
 
 tokio.version = "1"
-tokio.features = ["rt", "fs", "io-util"]
+tokio.features = ["rt", "fs", "io-util", "process"]
 
 [dev-dependencies]
 tokio.version = "1"
