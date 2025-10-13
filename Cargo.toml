@@ -4,8 +4,25 @@ version = "0.1.0-dev"
 edition = "2024"
 description = "Download, embed, and run llama.cpp in your Rust projects"
 license = "MIT"
-
-[features]
-embedded = []
+repository = "https://github.com/hecrj/llama-server"
 
 [dependencies]
+bitflags = "2"
+bytes = "1"
+directories = "6"
+futures = "0.3"
+sipper = "0.1"
+zip = "6"
+
+reqwest.version = "0.12"
+reqwest.features = ["json"]
+
+serde.version = "1"
+serde.features = ["derive"]
+
+tokio.version = "1"
+tokio.features = ["rt", "fs"]
+
+[dev-dependencies]
+tokio.version = "1"
+tokio.features = ["macros"]
