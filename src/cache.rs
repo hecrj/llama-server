@@ -69,6 +69,10 @@ impl Cache {
                     fs::read_dir(self.path.join(component.directory())).await?;
 
                 while let Some(entry) = read_component.next_entry().await? {
+                    if !entry.file_type().await?.is_file() {
+                        continue;
+                    }
+
                     let entry_path = entry.path();
 
                     let Some(file_name) = entry_path.file_name() else {
