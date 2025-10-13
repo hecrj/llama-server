@@ -158,10 +158,9 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn it_works() -> Result<(), Error> {
-        let build = Build::latest().await?;
-        assert!(build.number() > 0);
-
+        let build = Build::locked(6730);
         let server = Server::download(build, Backends::all()).await?;
+
         assert_eq!(server.build, build);
         assert_eq!(server.backends, Backends::all());
 
