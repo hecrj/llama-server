@@ -1,13 +1,12 @@
 use crate::{Artifact, Backend, Build, Error, Progress};
 
-use bytes::Bytes;
 use sipper::{Sipper, Straw, sipper};
 use tokio::fs;
+use tokio::io;
 use tokio::task;
 
 use std::collections::BTreeSet;
 use std::env;
-use std::io;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
@@ -40,14 +39,21 @@ impl Cache {
             };
 
             if !fs::try_exists(self.path.join(component.directory())).await? {
-                let bytes = artifact.download(self.build).run(sender).await?;
+                let file = fs::File::create(component.archive()).await?;
+
+                artifact
+                    .download(self.build, &mut io::BufWriter::new(file))
+                    .run(sender)
+                    .await?;
 
                 task::spawn_blocking({
                     let cache = self.clone();
 
-                    move || cache.extract(component, bytes)
+                    move || cache.extract(component)
                 })
                 .await??;
+
+                fs::remove_file(component.archive()).await?;
             }
 
             Ok(component)
@@ -97,10 +103,11 @@ impl Cache {
         }))
     }
 
-    fn extract(&self, component: Component, bytes: Bytes) -> Result<(), Error> {
+    fn extract(&self, component: Component) -> Result<(), Error> {
         let directory = self.path.join(component.directory());
+        let file = std::fs::File::open(component.archive())?;
 
-        let mut archive = zip::ZipArchive::new(io::Cursor::new(bytes))?;
+        let mut archive = zip::ZipArchive::new(std::io::BufReader::new(file))?;
         archive.extract(directory)?;
 
         Ok(())
@@ -122,6 +129,10 @@ impl Component {
                 Backend::Hip => "backend-hip",
             },
         }
+    }
+
+    fn archive(self) -> String {
+        format!("{}.zip", self.directory())
     }
 }
 

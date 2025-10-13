@@ -1,8 +1,8 @@
 use crate::http;
 use crate::{Backend, Build, Error};
 
-use bytes::Bytes;
 use sipper::Straw;
+use tokio::io::AsyncWrite;
 
 pub const REPOSITORY: &str = "hecrj/llama-server";
 
@@ -13,20 +13,27 @@ pub enum Artifact {
 }
 
 impl Artifact {
-    pub(crate) fn download(self, build: Build) -> impl Straw<Bytes, http::Progress, Error> {
+    pub(crate) fn download<W: AsyncWrite + Unpin>(
+        self,
+        build: Build,
+        writer: &mut W,
+    ) -> impl Straw<(), http::Progress, Error> {
         let release_url = format!("https://github.com/{REPOSITORY}/releases/download/{build}");
 
-        http::download(match self {
-            Artifact::Server => format!("{release_url}/llama-server-{build}-{PLATFORM}.zip"),
-            Artifact::Backend(backend) => {
-                let name = match backend {
-                    Backend::Cuda => "cuda",
-                    Backend::Hip => "hip",
-                };
+        http::download(
+            match self {
+                Artifact::Server => format!("{release_url}/llama-server-{build}-{PLATFORM}.zip"),
+                Artifact::Backend(backend) => {
+                    let name = match backend {
+                        Backend::Cuda => "cuda",
+                        Backend::Hip => "hip",
+                    };
 
-                format!("{release_url}/backend-{name}-{build}-{PLATFORM}.zip")
-            }
-        })
+                    format!("{release_url}/backend-{name}-{build}-{PLATFORM}.zip")
+                }
+            },
+            writer,
+        )
     }
 }
 

@@ -8,7 +8,6 @@ repository = "https://github.com/hecrj/llama-server"
 
 [dependencies]
 bitflags = "2"
-bytes = "1"
 directories = "6"
 futures = "0.3"
 sipper = "0.1"
@@ -21,7 +20,7 @@ serde.version = "1"
 serde.features = ["derive"]
 
 tokio.version = "1"
-tokio.features = ["rt", "fs"]
+tokio.features = ["rt", "fs", "io-util"]
 
 [dev-dependencies]
 tokio.version = "1"

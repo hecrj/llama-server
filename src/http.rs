@@ -1,7 +1,7 @@
 use crate::Error;
 
-use bytes::Bytes;
 use sipper::{Straw, sipper};
+use tokio::io::AsyncWrite;
 
 use std::sync::LazyLock;
 use std::time::Instant;
@@ -21,15 +21,17 @@ pub fn client() -> reqwest::Client {
     CLIENT.clone()
 }
 
-pub fn download<'a>(
+pub fn download<'a, W: AsyncWrite + Unpin>(
     url: impl reqwest::IntoUrl + Send + 'a,
-) -> impl Straw<Bytes, Progress, Error> + 'a {
+    writer: &'a mut W,
+) -> impl Straw<(), Progress, Error> + 'a {
+    use tokio::io::AsyncWriteExt;
+
     sipper(move |mut progress| async move {
         let mut download = client().get(url).send().await?;
         let start = Instant::now();
         let total = download.content_length().unwrap_or_default();
 
-        let mut buffer = Vec::with_capacity(total as usize);
         let mut downloaded = 0;
 
         progress
@@ -52,10 +54,12 @@ pub fn download<'a>(
                 })
                 .await;
 
-            buffer.extend_from_slice(&chunk);
+            writer.write_all(&chunk).await?;
         }
 
-        Ok(Bytes::from(buffer))
+        writer.flush().await?;
+
+        Ok(())
     })
 }
 
