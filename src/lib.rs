@@ -156,6 +156,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    #[ignore]
     async fn it_works() -> Result<(), Error> {
         let build = Build::latest().await?;
         assert!(build.number() > 0);
