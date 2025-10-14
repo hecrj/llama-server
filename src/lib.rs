@@ -28,11 +28,11 @@ pub struct Server {
 
 impl Server {
     pub async fn list() -> Result<Vec<Build>, Error> {
-        Ok(Cache::list().await?.iter().map(Cache::build).collect())
-    }
+        let mut builds: Vec<_> = Cache::list().await?.iter().map(Cache::build).collect();
 
-    pub async fn find(_build: Build, _backends: Backends) -> Option<Self> {
-        todo!()
+        builds.sort();
+
+        Ok(builds)
     }
 
     pub fn download(build: Build, backends: Backends) -> impl Straw<Self, Stage, Error> {
