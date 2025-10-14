@@ -24,10 +24,7 @@ jobs:
       - name: Get latest build
         id: get_latest
         run: |
-          build=$(curl -s https://api.github.com/orgs/ggml-org/packages/container/llama.cpp/versions?per_page=100 \
-            --header 'authorization: Bearer ${{ secrets.GITHUB_TOKEN }}' | \
-            jq -r 'map(.metadata | .container | .tags | map(capture("server-cuda-(?<version>[^-]+)"))) | flatten | .[0] | .version')
-
+          build=$(curl -s https://api.github.com/repos/ggml-org/llama.cpp/releases/latest | jq -r .tag_name)
           echo "llama.cpp latest build: $build"
           echo "tag=$build" >> "$GITHUB_OUTPUT"
 
@@ -35,21 +32,32 @@ jobs:
     needs: find
     runs-on: ubuntu-latest
     steps:
-      - name: Clone latest llama.cpp
+      - name: Free Disk Space (Ubuntu)
+        uses: ggml-org/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Clone llama.cpp@${{ needs.find.outputs.build }}
         run: git clone https://github.com/ggerganov/llama.cpp --branch=${{ needs.find.outputs.build }} --depth=1
 
-      - name: Pull `llama-server` image
-        run: docker pull ghcr.io/ggml-org/llama.cpp:server-cuda-${{ needs.find.outputs.build }}
+      - name: Build `llama-server`
+        run: docker build -f llama.cpp/.devops/cuda.Dockerfile --target server --tag llama-server-cuda llama.cpp
 
       - name: Create llama-server container
-        run: docker create --name llama-server ghcr.io/ggml-org/llama.cpp:server-cuda-${{ needs.find.outputs.build }}
+        run: docker create --name llama-server llama-server-cuda
 
       - name: Copy build artifacts from container
         run: docker cp llama-server:/app .
 
       - name: Copy CUDA runtime from container
         run: |
-          CUDA_VERSION=$(docker run --rm --entrypoint "" ghcr.io/ggml-org/llama.cpp:server-cuda \
+          CUDA_VERSION=$(docker run --rm --entrypoint "" llama-server-cuda \
               bash -c "ls /usr/local | grep '^cuda-[0-9]\+\.[0-9]\+$' | sort -V | tail -n1 | sed 's/cuda-//'")
 
           CUDA_MAJOR_VERSION=${CUDA_VERSION%%.*}
@@ -250,7 +258,6 @@ jobs:
 
   release:
     needs: [find, linux-cuda, linux-hip, macos, windows, windows-cuda, windows-hip]
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
