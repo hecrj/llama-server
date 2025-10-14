@@ -4,8 +4,6 @@ use crate::{Backend, Build, Error};
 use sipper::Straw;
 use tokio::io::AsyncWrite;
 
-pub const REPOSITORY: &str = "hecrj/llama-server";
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Artifact {
     Server,
@@ -18,7 +16,7 @@ impl Artifact {
         build: Build,
         writer: &mut W,
     ) -> impl Straw<(), http::Progress, Error> {
-        let release_url = format!("https://github.com/{REPOSITORY}/releases/download/{build}");
+        let release_url = build.url();
 
         http::download(
             match self {
@@ -35,10 +33,6 @@ impl Artifact {
             writer,
         )
     }
-}
-
-pub fn latest_release_url() -> String {
-    format!("https://api.github.com/repos/{REPOSITORY}/releases/latest")
 }
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]

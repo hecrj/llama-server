@@ -1,28 +1,30 @@
+pub mod backend;
+
 mod artifact;
+mod build;
 mod cache;
 mod error;
 mod http;
 
 pub use artifact::Artifact;
+pub use backend::Backend;
+pub use build::Build;
 pub use error::Error;
 pub use http::Progress;
 
-use cache::Cache;
+use crate::cache::Cache;
 
-use bitflags::bitflags;
 use sipper::{Sipper, Straw, sipper};
 use tokio::process;
 use tokio::time::{self, Duration};
 
-use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Server {
     pub build: Build,
-    pub backends: Backends,
+    pub backends: backend::Set,
     pub executable: PathBuf,
 }
 
@@ -35,7 +37,7 @@ impl Server {
         Ok(builds)
     }
 
-    pub fn download(build: Build, backends: Backends) -> impl Straw<Self, Stage, Error> {
+    pub fn download(build: Build, backends: backend::Set) -> impl Straw<Self, Stage, Error> {
         sipper(async move |sender| {
             let cache = Cache::new(build);
 
@@ -59,15 +61,7 @@ impl Server {
 
             Ok(Self {
                 build,
-                backends: backends
-                    .available()
-                    .fold(Backends::empty(), |backends, backend| {
-                        backends
-                            | match backend {
-                                Backend::Cuda => Backends::CUDA,
-                                Backend::Hip => Backends::HIP,
-                            }
-                    }),
+                backends: backends.normalize(),
                 executable,
             })
         })
@@ -162,96 +156,6 @@ pub enum Stage {
     Downloading(Artifact, Progress),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Build(u32);
-
-impl Build {
-    pub async fn latest() -> Result<Self, Error> {
-        use serde::Deserialize;
-
-        #[derive(Deserialize)]
-        struct Release {
-            tag_name: String,
-        }
-
-        let client = http::client();
-
-        let Release { tag_name } = client
-            .get(artifact::latest_release_url())
-            .send()
-            .await?
-            .error_for_status()?
-            .json()
-            .await?;
-
-        Ok(tag_name.parse()?)
-    }
-
-    pub fn locked(number: u32) -> Self {
-        Self(number)
-    }
-
-    pub fn number(self) -> u32 {
-        self.0
-    }
-}
-
-impl FromStr for Build {
-    type Err = io::Error;
-
-    fn from_str(build: &str) -> Result<Self, Self::Err> {
-        if !build.starts_with('b') {
-            return Err(io::Error::other(format!("invalid build: {build}")));
-        }
-
-        build
-            .trim_start_matches('b')
-            .parse()
-            .map(Self)
-            .map_err(io::Error::other)
-    }
-}
-
-impl fmt::Display for Build {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "b{}", self.0)
-    }
-}
-
-bitflags! {
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    pub struct Backends: u32 {
-        const CUDA = 1;
-        const HIP = 1 << 1;
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Backend {
-    Cuda,
-    Hip,
-}
-
-impl Backends {
-    pub fn available(self) -> impl Iterator<Item = Backend> {
-        let mut backends = Vec::new();
-
-        if cfg!(target_os = "macos") {
-            return backends.into_iter();
-        }
-
-        if self.contains(Self::CUDA) {
-            backends.push(Backend::Cuda);
-        }
-
-        if self.contains(Self::HIP) {
-            backends.push(Backend::Hip);
-        }
-
-        backends.into_iter()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -273,15 +177,15 @@ mod tests {
         }
 
         let build = Build::latest().await.unwrap_or(Build::locked(6730));
-        let server = Server::download(build, Backends::all()).await?;
+        let server = Server::download(build, backend::Set::all()).await?;
 
         assert_eq!(server.build, build);
         assert_eq!(
             server.backends,
             if cfg!(target_os = "macos") {
-                Backends::empty()
+                backend::Set::empty()
             } else {
-                Backends::all()
+                backend::Set::all()
             }
         );
 
