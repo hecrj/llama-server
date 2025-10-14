@@ -17,17 +17,18 @@ use tokio::time::{self, Duration};
 use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Server {
     pub build: Build,
     pub backends: Backends,
-    executable: PathBuf,
+    pub executable: PathBuf,
 }
 
 impl Server {
-    pub async fn list() -> Result<Vec<Self>, Error> {
-        todo!()
+    pub async fn list() -> Result<Vec<Build>, Error> {
+        Ok(Cache::list().await?.iter().map(Cache::build).collect())
     }
 
     pub async fn find(_build: Build, _backends: Backends) -> Option<Self> {
@@ -58,14 +59,26 @@ impl Server {
 
             Ok(Self {
                 build,
-                backends,
+                backends: backends
+                    .available()
+                    .fold(Backends::empty(), |backends, backend| {
+                        backends
+                            | match backend {
+                                Backend::Cuda => Backends::CUDA,
+                                Backend::Hip => Backends::HIP,
+                            }
+                    }),
                 executable,
             })
         })
     }
 
-    pub async fn boot(self, model: impl AsRef<Path>, settings: Settings) -> Result<Process, Error> {
-        let child = process::Command::new(self.executable)
+    pub async fn boot(
+        &self,
+        model: impl AsRef<Path>,
+        settings: Settings,
+    ) -> Result<Instance, Error> {
+        let process = process::Command::new(&self.executable)
             .args(
                 format!(
                     "--model {model} --host {host} --port {port} --gpu-layers {gpu_layers} --jinja",
@@ -79,10 +92,60 @@ impl Server {
             .kill_on_drop(true)
             .spawn()?;
 
-        let url = format!("http://{}:{}", settings.host, settings.port);
+        Ok(Instance {
+            host: settings.host,
+            port: settings.port,
+            process,
+        })
+    }
 
+    pub async fn delete(build: Build) -> Result<(), Error> {
+        Cache::new(build).delete().await
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Settings {
+    pub host: String,
+    pub port: u32,
+    pub gpu_layers: u32,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            host: "127.0.0.1".to_owned(),
+            port: 8080,
+            gpu_layers: 80,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Instance {
+    pub host: String,
+    pub port: u32,
+    pub process: process::Child,
+}
+
+impl Instance {
+    pub fn url(&self) -> String {
+        format!("http://{}:{}", self.host, self.port)
+    }
+
+    pub async fn wait_until_ready(&mut self) -> Result<(), Error> {
         loop {
-            if let Ok(response) = http::client().get(format!("{url}/health")).send().await {
+            if let Some(status) = self.process.try_wait()? {
+                return Err(io::Error::other(format!(
+                    "llama-server exited unexpectedly: {status}"
+                )))?;
+            }
+
+            if let Ok(response) = http::client()
+                .get(format!("{}/health", self.url()))
+                .send()
+                .await
+            {
                 if response.error_for_status().is_ok() {
                     break;
                 }
@@ -91,35 +154,8 @@ impl Server {
             time::sleep(Duration::from_secs(1)).await;
         }
 
-        Ok(Process { url, _raw: child })
+        Ok(())
     }
-
-    pub async fn delete(self) -> Result<Self, Error> {
-        todo!()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Settings {
-    pub port: u32,
-    pub host: String,
-    pub gpu_layers: u32,
-}
-
-impl Default for Settings {
-    fn default() -> Self {
-        Self {
-            port: 8080,
-            host: "127.0.0.1".to_owned(),
-            gpu_layers: 80,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Process {
-    pub url: String,
-    _raw: process::Child,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -149,12 +185,7 @@ impl Build {
             .json()
             .await?;
 
-        let number = tag_name
-            .trim_start_matches('b')
-            .parse()
-            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-
-        Ok(Self(number))
+        Ok(tag_name.parse()?)
     }
 
     pub fn locked(number: u32) -> Self {
@@ -163,6 +194,22 @@ impl Build {
 
     pub fn number(self) -> u32 {
         self.0
+    }
+}
+
+impl FromStr for Build {
+    type Err = io::Error;
+
+    fn from_str(build: &str) -> Result<Self, Self::Err> {
+        if !build.starts_with('b') {
+            return Err(io::Error::other(format!("invalid build: {build}")));
+        }
+
+        build
+            .trim_start_matches('b')
+            .parse()
+            .map(Self)
+            .map_err(io::Error::other)
     }
 }
 
@@ -219,19 +266,43 @@ mod tests {
         const MODEL_URL: &str = "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-UD-Q4_K_XL.gguf?download=true";
         const MODEL_FILE: &str = "Qwen3.gguf";
 
+        let is_ci = std::env::var("CI").as_deref() == Ok("true");
+
+        if is_ci {
+            let installed = Server::list().await?;
+            assert!(installed.is_empty());
+        }
+
         let build = Build::latest().await.unwrap_or(Build::locked(6730));
         let server = Server::download(build, Backends::all()).await?;
 
         assert_eq!(server.build, build);
-        assert_eq!(server.backends, Backends::all());
+        assert_eq!(
+            server.backends,
+            if cfg!(target_os = "macos") {
+                Backends::empty()
+            } else {
+                Backends::all()
+            }
+        );
 
         if !fs::try_exists(MODEL_FILE).await? {
             let model = fs::File::create(MODEL_FILE).await?;
             http::download(MODEL_URL, &mut io::BufWriter::new(model)).await?;
         }
 
-        let process = server.boot(MODEL_FILE, Settings::default()).await?;
-        assert_eq!(process.url, "http://127.0.0.1:8080");
+        let mut instance = server.boot(MODEL_FILE, Settings::default()).await?;
+        instance.wait_until_ready().await?;
+        assert_eq!(instance.url(), "http://127.0.0.1:8080");
+
+        if is_ci {
+            let installed = Server::list().await?;
+            assert!(installed.len() == 1);
+            assert_eq!(installed.first(), Some(&server.build));
+
+            Server::delete(server.build).await?;
+            assert!(installed.is_empty());
+        }
 
         Ok(())
     }
