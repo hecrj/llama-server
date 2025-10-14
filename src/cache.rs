@@ -24,6 +24,8 @@ impl Cache {
     }
 
     pub async fn list() -> Result<Vec<Self>, Error> {
+        fs::create_dir_all(root()).await?;
+
         let mut caches = Vec::new();
         let mut read_dir = fs::read_dir(root()).await?;
 
