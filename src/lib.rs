@@ -301,6 +301,8 @@ mod tests {
             assert_eq!(installed.first(), Some(&server.build));
 
             Server::delete(server.build).await?;
+
+            let installed = Server::list().await?;
             assert!(installed.is_empty());
         }
 
