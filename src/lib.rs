@@ -296,17 +296,16 @@ mod tests {
         assert_eq!(instance.url(), "http://127.0.0.1:8080");
 
         if is_ci {
+            drop(instance);
+
             let installed = Server::list().await?;
             assert!(installed.len() == 1);
             assert_eq!(installed.first(), Some(&server.build));
 
-            // Windows CI runner does not seem to let us delete anything (?)
-            if cfg!(not(target_os = "windows")) {
-                Server::delete(server.build).await?;
+            Server::delete(server.build).await?;
 
-                let installed = Server::list().await?;
-                assert!(installed.is_empty());
-            }
+            let installed = Server::list().await?;
+            assert!(installed.is_empty());
         }
 
         Ok(())
