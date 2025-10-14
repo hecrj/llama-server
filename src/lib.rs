@@ -145,10 +145,9 @@ impl Instance {
                 .get(format!("{}/health", self.url()))
                 .send()
                 .await
+                && response.error_for_status().is_ok()
             {
-                if response.error_for_status().is_ok() {
-                    break;
-                }
+                break;
             }
 
             time::sleep(Duration::from_secs(1)).await;
