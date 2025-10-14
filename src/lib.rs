@@ -20,6 +20,7 @@ use tokio::time::{self, Duration};
 
 use std::io;
 use std::path::{Path, PathBuf};
+use std::process::Stdio;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Server {
@@ -83,6 +84,9 @@ impl Server {
                 )
                 .split_whitespace(),
             )
+            .stdin(settings.stdin)
+            .stdout(settings.stdout)
+            .stderr(settings.stderr)
             .kill_on_drop(true)
             .spawn()?;
 
@@ -98,11 +102,14 @@ impl Server {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Settings {
     pub host: String,
     pub port: u32,
     pub gpu_layers: u32,
+    pub stdin: Stdio,
+    pub stdout: Stdio,
+    pub stderr: Stdio,
 }
 
 impl Default for Settings {
@@ -111,6 +118,9 @@ impl Default for Settings {
             host: "127.0.0.1".to_owned(),
             port: 8080,
             gpu_layers: 80,
+            stdin: Stdio::null(),
+            stdout: Stdio::null(),
+            stderr: Stdio::null(),
         }
     }
 }
@@ -194,7 +204,16 @@ mod tests {
             http::download(MODEL_URL, &mut io::BufWriter::new(model)).await?;
         }
 
-        let mut instance = server.boot(MODEL_FILE, Settings::default()).await?;
+        let mut instance = server
+            .boot(
+                MODEL_FILE,
+                Settings {
+                    stdout: Stdio::inherit(),
+                    stderr: Stdio::inherit(),
+                    ..Settings::default()
+                },
+            )
+            .await?;
         instance.wait_until_ready().await?;
         assert_eq!(instance.url(), "http://127.0.0.1:8080");
 
