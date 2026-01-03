@@ -159,15 +159,15 @@ jobs:
         arch: [arm64, x64]
     steps:
       - name: Download macOS release
-        run: curl -LO https://github.com/ggml-org/llama.cpp/releases/download/${{ needs.find.outputs.build }}/llama-${{ needs.find.outputs.build }}-bin-macos-${{ matrix.arch }}.zip
+        run: curl -LO https://github.com/ggml-org/llama.cpp/releases/download/${{ needs.find.outputs.build }}/llama-${{ needs.find.outputs.build }}-bin-macos-${{ matrix.arch }}.tar.gz
 
-      - name: Unzip macOS release
-        run: unzip llama-${{ needs.find.outputs.build }}-bin-macos-${{ matrix.arch }}.zip
+      - name: Extract macOS release
+        run: tar -xzf llama-${{ needs.find.outputs.build }}-bin-macos-${{ matrix.arch }}.tar.gz
 
       - name: Pack llama-server
         run: |
           mkdir app
-          mv build/bin/llama-server build/bin/*.dylib build/bin/LICENSE* app/.
+          mv llama-${{ needs.find.outputs.build }}/llama-server llama-${{ needs.find.outputs.build }}/*.dylib llama-${{ needs.find.outputs.build }}/LICENSE* app/.
           cd app
           zip -r ../llama-server-${{ needs.find.outputs.build }}-macos-${{ matrix.arch }}.zip *
 
