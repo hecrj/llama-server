@@ -176,7 +176,7 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn it_works() -> Result<(), Error> {
-        const MODEL_URL: &str = "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-UD-Q4_K_XL.gguf?download=true";
+        const MODEL_URL: &str = "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-UD-Q2_K_XL.gguf?download=true";
         const MODEL_FILE: &str = "Qwen3.gguf";
 
         let is_ci = std::env::var("CI").as_deref() == Ok("true");
