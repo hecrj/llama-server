@@ -190,7 +190,7 @@ jobs:
       - name: Pack llama-server
         run: |
           mkdir app
-          mv llama-server.exe *.dll LICENSE* app/.
+          mv llama-server.exe *.dll app/.
           cd app
           zip -r ../llama-server-${{ needs.find.outputs.build }}-windows-x64.zip *
 
@@ -223,7 +223,7 @@ jobs:
       - name: Pack Windows CUDA backend
         run: |
           mkdir cuda
-          mv ggml-cuda.dll cudart*.dll cublas*.dll LICENSE* cuda/.
+          mv ggml-cuda.dll cudart*.dll cublas*.dll cuda/.
           cd cuda
           zip -r ../backend-cuda-${{ needs.find.outputs.build }}-windows-x64.zip *
 
@@ -246,7 +246,7 @@ jobs:
       - name: Pack Windows HIP backend
         run: |
           mkdir hip
-          mv ggml-hip.dll hipblas*.dll rocblas.dll hipblaslt rocblas LICENSE* hip/.
+          mv ggml-hip.dll hipblas*.dll rocblas.dll hipblaslt rocblas hip/.
           cd hip
           zip -r ../backend-hip-${{ needs.find.outputs.build }}-windows-x64.zip *
 
