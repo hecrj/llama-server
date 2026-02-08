@@ -2,6 +2,7 @@
 
 # llama-server
 
+[![Documentation](https://docs.rs/llama-server/badge.svg)](https://docs.rs/llama-server)
 [![Crates.io](https://img.shields.io/crates/v/llama-server.svg)](https://crates.io/crates/llama-server)
 [![License](https://img.shields.io/crates/l/llama-server.svg)](https://github.com/hecrj/llama-server/blob/master/LICENSE)
 [![Downloads](https://img.shields.io/crates/d/llama-server.svg)](https://crates.io/crates/llama-server)
