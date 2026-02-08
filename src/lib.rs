@@ -1,3 +1,4 @@
+//! Download, embed, and run llama.cpp in your Rust projects.
 pub mod backend;
 
 mod artifact;
@@ -22,14 +23,19 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
+/// A server instance.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Server {
+    /// The specific [`Build`] of the [`Server`].
     pub build: Build,
+    /// The available backends of the [`Server`].
     pub backends: backend::Set,
+    /// The path to the executable binary of the [`Server`].
     pub executable: PathBuf,
 }
 
 impl Server {
+    /// Lists all the [`Server`] builds installed in the system.
     pub async fn list() -> Result<Vec<Build>, Error> {
         let mut builds: Vec<_> = Cache::list().await?.iter().map(Cache::build).collect();
 
@@ -38,7 +44,8 @@ impl Server {
         Ok(builds)
     }
 
-    pub fn download(build: Build, backends: backend::Set) -> impl Straw<Self, Stage, Error> {
+    /// Download and installs the given [`Build`] of a [`Server`] with the given backends.
+    pub fn download(build: Build, backends: backend::Set) -> impl Straw<Self, Download, Error> {
         sipper(async move |sender| {
             let cache = Cache::new(build);
 
@@ -51,7 +58,7 @@ impl Server {
             for artifact in artifacts {
                 let component = cache
                     .download(artifact)
-                    .with(|progress| Stage::Downloading(artifact, progress))
+                    .with(|progress| Download { artifact, progress })
                     .run(sender.clone())
                     .await?;
 
@@ -68,6 +75,7 @@ impl Server {
         })
     }
 
+    /// Boots an [`Instance`] of the [`Server`] using the given model.
     pub async fn boot(
         &self,
         model: impl AsRef<Path>,
@@ -97,18 +105,26 @@ impl Server {
         })
     }
 
+    /// Deletes the [`Server`] installation with the given [`Build`].
     pub async fn delete(build: Build) -> Result<(), Error> {
         Cache::new(build).delete().await
     }
 }
 
+/// The configurable options of a new [`Instance`].
 #[derive(Debug)]
 pub struct Settings {
+    /// The host URI that should be listened to by the [`Instance`].
     pub host: String,
+    /// The host port to the [`Instance`] should be binded to.
     pub port: u32,
+    /// The amount of layers to run in a GPU backend.
     pub gpu_layers: u32,
+    /// The standard input stream.
     pub stdin: Stdio,
+    /// The standard output stream.
     pub stdout: Stdio,
+    /// The standard error stream.
     pub stderr: Stdio,
 }
 
@@ -125,18 +141,24 @@ impl Default for Settings {
     }
 }
 
+/// An active [`Server`] running a specific language model.
 #[derive(Debug)]
 pub struct Instance {
+    /// The host address of the [`Instance`].
     pub host: String,
+    /// The host port of the [`Instance`].
     pub port: u32,
+    /// The process of the [`Instance`].
     pub process: process::Child,
 }
 
 impl Instance {
+    /// The URL of the [`Instance`].
     pub fn url(&self) -> String {
         format!("http://{}:{}", self.host, self.port)
     }
 
+    /// Waits until the [`Instance`] is warmed up and ready to receive requests.
     pub async fn wait_until_ready(&mut self) -> Result<(), Error> {
         loop {
             if let Some(status) = self.process.try_wait()? {
@@ -161,9 +183,13 @@ impl Instance {
     }
 }
 
+/// The download state of a [`Server`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Stage {
-    Downloading(Artifact, Progress),
+pub struct Download {
+    /// The [`Artifact`] being downloaded.
+    pub artifact: Artifact,
+    /// The download [`Progress`].
+    pub progress: Progress,
 }
 
 #[cfg(test)]

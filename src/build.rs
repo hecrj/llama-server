@@ -7,10 +7,12 @@ use std::str::FromStr;
 
 const REPOSITORY: &str = "hecrj/llama-server";
 
+/// A specific build of `llama-server`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Build(u32);
 
 impl Build {
+    /// Fetches the latest available [`Build`].
     pub async fn latest() -> Result<Self, Error> {
         use serde::Deserialize;
 
@@ -35,15 +37,17 @@ impl Build {
         Ok(tag_name.parse()?)
     }
 
+    /// Creates a new [`Build`] locked to the given number.
     pub fn locked(number: u32) -> Self {
         Self(number)
     }
 
+    /// Returns the number of the [`Build`].
     pub fn number(self) -> u32 {
         self.0
     }
 
-    pub fn url(self) -> String {
+    pub(crate) fn url(self) -> String {
         format!("https://github.com/{REPOSITORY}/releases/download/{self}")
     }
 }

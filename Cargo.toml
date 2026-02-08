@@ -1,6 +1,6 @@
 [package]
 name = "llama-server"
-version = "0.1.0-dev"
+version = "0.1.0"
 edition = "2024"
 description = "Download, embed, and run llama.cpp in your Rust projects"
 license = "MIT"
@@ -25,3 +25,12 @@ tokio.features = ["rt", "fs", "io-util", "process"]
 [dev-dependencies]
 tokio.version = "1"
 tokio.features = ["macros"]
+
+[lints]
+workspace = true
+
+[workspace.lints.rust]
+rust_2018_idioms = { level = "deny", priority = -1 }
+unsafe_code = "deny"
+unused_results = "deny"
+missing_docs = "deny"

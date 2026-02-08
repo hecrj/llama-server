@@ -4,9 +4,12 @@ use crate::{Backend, Build, Error};
 use sipper::Straw;
 use tokio::io::AsyncWrite;
 
+/// A component of a `llama-server` instance.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Artifact {
+    /// The server binary.
     Server,
+    /// A specific [`Backend`].
     Backend(Backend),
 }
 

@@ -63,9 +63,13 @@ pub fn download<'a, W: AsyncWrite + Unpin>(
     })
 }
 
+/// The progress of an HTTP download.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Progress {
+    /// The amount of bytes downloaded.
     pub downloaded: u64,
+    /// The total of bytes to download.
     pub total: u64,
+    /// The current download speed, in bytes per second.
     pub speed: u64,
 }

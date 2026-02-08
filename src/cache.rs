@@ -173,7 +173,7 @@ struct Instance {
 impl Instance {
     fn new(components: impl IntoIterator<Item = Component>) -> Self {
         let mut components = BTreeSet::from_iter(components);
-        components.insert(Component::Server);
+        let _ = components.insert(Component::Server);
 
         Self { components }
     }
