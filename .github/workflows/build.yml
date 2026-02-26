@@ -246,7 +246,7 @@ jobs:
       - name: Pack Windows HIP backend
         run: |
           mkdir hip
-          mv ggml-hip.dll hipblas*.dll rocblas.dll hipblaslt rocblas hip/.
+          mv ggml-hip.dll libhipblas*.dll rocblas.dll hipblaslt rocblas hip/.
           cd hip
           zip -r ../backend-hip-${{ needs.find.outputs.build }}-windows-x64.zip *
 
