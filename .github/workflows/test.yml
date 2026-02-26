@@ -1,5 +1,9 @@
 name: Test
-on: [push, pull_request]
+on:
+  push: {}
+  pull_request: {}
+  schedule:
+    - cron: '0 2 * * *'
 jobs:
   all:
     runs-on: ${{ matrix.os }}
@@ -16,4 +20,3 @@ jobs:
     - uses: actions/checkout@master
     - name: Run tests
       run: cargo test --verbose --workspace -- --ignored
-
