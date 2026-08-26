@@ -164,7 +164,8 @@ impl Instance {
             if let Some(status) = self.process.try_wait()? {
                 return Err(io::Error::other(format!(
                     "llama-server exited unexpectedly: {status}"
-                )))?;
+                ))
+                .into());
             }
 
             if let Ok(response) = http::client()
