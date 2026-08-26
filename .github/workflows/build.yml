@@ -24,7 +24,7 @@ jobs:
       - name: Get latest build
         id: get_latest
         run: |
-          build=$(curl -s https://api.github.com/repos/ggml-org/llama.cpp/releases/latest | jq -r .tag_name)
+          build=$(curl -s https://api.github.com/repos/ggml-org/llama.cpp/releases | jq -r .[0].tag_name)
           echo "llama.cpp latest build: $build"
           echo "tag=$build" >> "$GITHUB_OUTPUT"
 
@@ -206,8 +206,8 @@ jobs:
     steps:
       - name: Download Windows CUDA release
         run: |
-          version=$(curl -s https://api.github.com/repos/ggml-org/llama.cpp/releases/latest | \
-            jq -r '.assets | map(.name | capture("cudart-.*-cuda-(?<version>[^-]+)-")) | .[0] | .version')
+          version=$(curl -s https://api.github.com/repos/ggml-org/llama.cpp/releases | \
+            jq -r '.[0].assets | map(.name | capture("cudart-.*-cuda-(?<version>[^-]+)-")) | .[0] | .version')
 
           curl -L -o llama-server-windows-x64.zip \
             https://github.com/ggml-org/llama.cpp/releases/download/${{ needs.find.outputs.build }}/llama-${{ needs.find.outputs.build }}-bin-win-cuda-$version-x64.zip
@@ -237,16 +237,16 @@ jobs:
     needs: find
     runs-on: ubuntu-latest
     steps:
-      - name: Download Windows HIP release
-        run: curl -LO https://github.com/ggml-org/llama.cpp/releases/download/${{ needs.find.outputs.build }}/llama-${{ needs.find.outputs.build }}-bin-win-hip-radeon-x64.zip
+      - name: Download Windows ROCm release
+        run: curl -LO https://github.com/ggml-org/llama.cpp/releases/download/${{ needs.find.outputs.build }}/llama-${{ needs.find.outputs.build }}-bin-win-rocm-7.14-x64.zip
 
-      - name: Unzip Windows HIP release
-        run: unzip llama-${{ needs.find.outputs.build }}-bin-win-hip-radeon-x64.zip
+      - name: Unzip Windows ROCm release
+        run: unzip llama-${{ needs.find.outputs.build }}-bin-win-rocm-7.14-x64.zip
 
-      - name: Pack Windows HIP backend
+      - name: Pack Windows ROCm backend
         run: |
           mkdir hip
-          mv ggml-hip.dll libhipblas*.dll rocblas.dll hipblaslt rocblas hip/.
+          mv ggml-hip.dll hip/.
           cd hip
           zip -r ../backend-hip-${{ needs.find.outputs.build }}-windows-x64.zip *
 
