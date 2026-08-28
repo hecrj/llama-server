@@ -78,17 +78,18 @@ impl Server {
     /// Boots an [`Instance`] of the [`Server`] using the given model.
     pub async fn boot(
         &self,
-        model: impl AsRef<Path>,
+        models_dir: impl AsRef<Path>,
         settings: Settings,
     ) -> Result<Instance, Error> {
+        let models_dir = models_dir.as_ref();
+
         let process = process::Command::new(&self.executable)
             .args(
                 format!(
-                    "--model {model} --host {host} --port {port} --gpu-layers {gpu_layers} --jinja",
-                    model = model.as_ref().display(),
+                    "--host {host} --port {port} --models_dir {models_dir}",
                     host = settings.host,
                     port = settings.port,
-                    gpu_layers = settings.gpu_layers,
+                    models_dir = models_dir.display(),
                 )
                 .split_whitespace(),
             )
@@ -101,6 +102,7 @@ impl Server {
         Ok(Instance {
             host: settings.host,
             port: settings.port,
+            models_dir: models_dir.to_path_buf(),
             process,
         })
     }
@@ -118,8 +120,6 @@ pub struct Settings {
     pub host: String,
     /// The host port to the [`Instance`] should be binded to.
     pub port: u32,
-    /// The amount of layers to run in a GPU backend.
-    pub gpu_layers: u32,
     /// The standard input stream.
     pub stdin: Stdio,
     /// The standard output stream.
@@ -133,7 +133,6 @@ impl Default for Settings {
         Self {
             host: "127.0.0.1".to_owned(),
             port: 8080,
-            gpu_layers: 80,
             stdin: Stdio::null(),
             stdout: Stdio::null(),
             stderr: Stdio::null(),
@@ -148,6 +147,8 @@ pub struct Instance {
     pub host: String,
     /// The host port of the [`Instance`].
     pub port: u32,
+    /// The directory containing model files of the [`Instance`].
+    pub models_dir: PathBuf,
     /// The process of the [`Instance`].
     pub process: process::Child,
 }
@@ -200,13 +201,27 @@ mod tests {
     use tokio::fs;
     use tokio::io;
 
+    use std::env;
+
     #[tokio::test]
     #[ignore]
     async fn it_works() -> Result<(), Error> {
         const MODEL_URL: &str = "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-UD-Q2_K_XL.gguf?download=true";
         const MODEL_FILE: &str = "Qwen3.gguf";
 
-        let is_ci = std::env::var("CI").as_deref() == Ok("true");
+        let is_ci = env::var("CI").as_deref() == Ok("true");
+
+        let models_dir = env::current_dir()?.join("models");
+        let model_file = models_dir.join(MODEL_FILE);
+
+        if !fs::try_exists(&models_dir).await? {
+            fs::create_dir(models_dir).await?;
+        }
+
+        if !fs::try_exists(&model_file).await? {
+            let model = fs::File::create(&model_file).await?;
+            http::download(MODEL_URL, &mut io::BufWriter::new(model)).await?;
+        }
 
         if is_ci {
             let installed = Server::list().await?;
@@ -226,14 +241,9 @@ mod tests {
             }
         );
 
-        if !fs::try_exists(MODEL_FILE).await? {
-            let model = fs::File::create(MODEL_FILE).await?;
-            http::download(MODEL_URL, &mut io::BufWriter::new(model)).await?;
-        }
-
         let mut instance = server
             .boot(
-                MODEL_FILE,
+                model_file,
                 Settings {
                     stdout: Stdio::inherit(),
                     stderr: Stdio::inherit(),
