@@ -2,11 +2,13 @@ use std::io;
 use std::sync::Arc;
 
 /// An error.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum Error {
     /// Some input/ouput operation failed.
+    #[error("io operation failed: {0}")]
     IOFailed(Arc<io::Error>),
     /// Some HTTP request failed.
+    #[error("http request failed: {0}")]
     RequestFailed(Arc<reqwest::Error>),
 }
 
