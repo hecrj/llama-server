@@ -256,7 +256,7 @@ mod tests {
             )
             .await?;
         instance.wait_until_ready().await?;
-        assert_eq!(instance.url().as_str(), "http://127.0.0.1:8080/");
+        assert_eq!(instance.url().as_str(), "http://127.0.0.1:9931/");
 
         if is_ci {
             drop(instance);
