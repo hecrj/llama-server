@@ -138,7 +138,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             host: "127.0.0.1".to_owned(),
-            port: 8080,
+            port: 9931,
             stdin: Stdio::null(),
             stdout: Stdio::null(),
             stderr: Stdio::null(),
