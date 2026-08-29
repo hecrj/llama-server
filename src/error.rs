@@ -4,12 +4,15 @@ use std::sync::Arc;
 /// An error.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum Error {
-    /// Some input/ouput operation failed.
+    /// An input/ouput operation failed.
     #[error("io operation failed: {0}")]
     IOFailed(Arc<io::Error>),
-    /// Some HTTP request failed.
+    /// An HTTP request failed.
     #[error("http request failed: {0}")]
     RequestFailed(Arc<reqwest::Error>),
+    /// A URL parsing operation failed.
+    #[error("URL parsing failed: {0}")]
+    UrlParsingFailed(#[from] url::ParseError),
 }
 
 impl From<io::Error> for Error {
@@ -23,6 +26,7 @@ impl From<Error> for io::Error {
         match error {
             Error::IOFailed(error) => io::Error::new(error.kind(), error),
             Error::RequestFailed(error) => io::Error::other(error),
+            Error::UrlParsingFailed(error) => io::Error::other(error),
         }
     }
 }

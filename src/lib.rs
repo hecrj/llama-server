@@ -18,6 +18,7 @@ use crate::cache::Cache;
 use sipper::{Sipper, Straw, sipper};
 use tokio::process;
 use tokio::time::{self, Duration};
+use url::Url;
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -99,9 +100,14 @@ impl Server {
             .kill_on_drop(true)
             .spawn()?;
 
+        let url = Url::parse(&format!(
+            "http://{host}:{port}",
+            host = settings.host,
+            port = settings.port
+        ))?;
+
         Ok(Instance {
-            host: settings.host,
-            port: settings.port,
+            url,
             models_dir: models_dir.to_path_buf(),
             process,
         })
@@ -140,13 +146,11 @@ impl Default for Settings {
     }
 }
 
-/// An active [`Server`] running a specific language model.
+/// An active [`Server`].
 #[derive(Debug)]
 pub struct Instance {
-    /// The host address of the [`Instance`].
-    pub host: String,
-    /// The host port of the [`Instance`].
-    pub port: u32,
+    /// The URL of the [`Instance`].
+    pub url: Url,
     /// The directory containing model files of the [`Instance`].
     pub models_dir: PathBuf,
     /// The process of the [`Instance`].
@@ -155,8 +159,8 @@ pub struct Instance {
 
 impl Instance {
     /// The URL of the [`Instance`].
-    pub fn url(&self) -> String {
-        format!("http://{}:{}", self.host, self.port)
+    pub fn url(&self) -> &Url {
+        &self.url
     }
 
     /// Waits until the [`Instance`] is warmed up and ready to receive requests.
@@ -170,7 +174,7 @@ impl Instance {
             }
 
             if let Ok(response) = http::client()
-                .get(format!("{}/health", self.url()))
+                .get(format!("{}health", self.url))
                 .send()
                 .await
                 && response.error_for_status().is_ok()
@@ -215,7 +219,7 @@ mod tests {
         let model_file = models_dir.join(MODEL_FILE);
 
         if !fs::try_exists(&models_dir).await? {
-            fs::create_dir(models_dir).await?;
+            fs::create_dir(&models_dir).await?;
         }
 
         if !fs::try_exists(&model_file).await? {
@@ -243,7 +247,7 @@ mod tests {
 
         let mut instance = server
             .boot(
-                model_file,
+                models_dir,
                 Settings {
                     stdout: Stdio::inherit(),
                     stderr: Stdio::inherit(),
@@ -252,7 +256,7 @@ mod tests {
             )
             .await?;
         instance.wait_until_ready().await?;
-        assert_eq!(instance.url(), "http://127.0.0.1:8080");
+        assert_eq!(instance.url().as_str(), "http://127.0.0.1:8080/");
 
         if is_ci {
             drop(instance);
