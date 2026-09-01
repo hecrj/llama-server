@@ -232,7 +232,7 @@ mod tests {
             assert!(installed.is_empty());
         }
 
-        let build = Build::latest().await.unwrap_or(Build::locked(6730));
+        let build = Build::latest().await.unwrap_or(Build::locked(10642));
         let server = Server::download(build, backend::Set::all()).await?;
 
         assert_eq!(server.build, build);
