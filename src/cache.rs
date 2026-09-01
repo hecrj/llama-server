@@ -100,10 +100,6 @@ impl Cache {
                     fs::read_dir(self.path.join(component.directory())).await?;
 
                 while let Some(entry) = read_component.next_entry().await? {
-                    if !entry.file_type().await?.is_file() {
-                        continue;
-                    }
-
                     let entry_path = entry.path();
 
                     let Some(file_name) = entry_path.file_name() else {
@@ -116,7 +112,17 @@ impl Cache {
                         continue;
                     }
 
-                    fs::hard_link(entry_path, dest_path).await?;
+                    let file_type = entry.file_type().await?;
+
+                    let source_path = if file_type.is_symlink() {
+                        fs::canonicalize(&entry_path).await?
+                    } else if file_type.is_file() {
+                        entry_path
+                    } else {
+                        continue;
+                    };
+
+                    fs::hard_link(source_path, dest_path).await?;
                 }
             }
         }

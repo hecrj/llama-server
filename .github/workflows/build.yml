@@ -83,13 +83,13 @@ jobs:
         run: |
           cp llama.cpp/LICENSE app/.
           cd app
-          zip -r ../llama-server-${{ needs.find.outputs.build }}-linux-x64.zip *
+          zip -ry ../llama-server-${{ needs.find.outputs.build }}-linux-x64.zip *
 
       - name: Pack CUDA backend
         run: |
           cp llama.cpp/LICENSE cuda/.
           cd cuda
-          zip -r ../backend-cuda-${{ needs.find.outputs.build }}-linux-x64.zip *
+          zip -ry ../backend-cuda-${{ needs.find.outputs.build }}-linux-x64.zip *
 
       - name: Upload llama-server
         uses: actions/upload-artifact@v4
@@ -148,7 +148,7 @@ jobs:
           mkdir hip
           mv app/libggml-hip.so app/*.so.* llama.cpp/LICENSE hip/.
           cd hip
-          zip -r ../backend-hip-${{ needs.find.outputs.build }}-linux-x64.zip *
+          zip -ry ../backend-hip-${{ needs.find.outputs.build }}-linux-x64.zip *
 
       - name: Upload HIP backend
         uses: actions/upload-artifact@v4
@@ -174,7 +174,7 @@ jobs:
           mkdir app
           mv llama-${{ needs.find.outputs.build }}/llama-server llama-${{ needs.find.outputs.build }}/*.dylib llama-${{ needs.find.outputs.build }}/LICENSE* app/.
           cd app
-          zip -r ../llama-server-${{ needs.find.outputs.build }}-macos-${{ matrix.arch }}.zip *
+          zip -ry ../llama-server-${{ needs.find.outputs.build }}-macos-${{ matrix.arch }}.zip *
 
       - name: Upload llama-server
         uses: actions/upload-artifact@v4
