@@ -31,6 +31,8 @@ jobs:
   linux-cuda:
     needs: find
     runs-on: ubuntu-latest
+    env:
+      CUDA_VERSION: 13.3.1
     steps:
       - name: Free Disk Space (Ubuntu)
         uses: ggml-org/free-disk-space@v1.3.1
@@ -47,7 +49,7 @@ jobs:
         run: git clone https://github.com/ggerganov/llama.cpp --branch=${{ needs.find.outputs.build }} --depth=1
 
       - name: Build `llama-server`
-        run: docker build -f llama.cpp/.devops/cuda.Dockerfile --target server --tag llama-server-cuda llama.cpp
+        run: docker build -f llama.cpp/.devops/cuda.Dockerfile --target server --tag llama-server-cuda --build-arg CUDA_VERSION=$CUDA_VERSION llama.cpp
 
       - name: Create llama-server container
         run: docker create --name llama-server llama-server-cuda
@@ -57,14 +59,17 @@ jobs:
 
       - name: Copy CUDA runtime from container
         run: |
-          CUDA_VERSION=$(docker run --rm --entrypoint "" llama-server-cuda \
-              bash -c "ls /usr/local | grep '^cuda-[0-9]\+\.[0-9]\+$' | sort -V | tail -n1 | sed 's/cuda-//'")
+          # TODO: Disable for now
+          # CUDA_VERSION=$(docker run --rm --entrypoint "" llama-server-cuda \
+          #     bash -c "ls /usr/local | grep '^cuda-[0-9]\+\.[0-9]\+$' | sort -V | tail -n1 | sed 's/cuda-//'")
 
           CUDA_MAJOR_VERSION=${CUDA_VERSION%%.*}
+          CUDA_MAJOR_MINOR_VERSION=${CUDA_VERSION%.*}
 
-          docker cp -L llama-server:/usr/local/cuda-$CUDA_VERSION/targets/x86_64-linux/lib/libcudart.so.$CUDA_MAJOR_VERSION app/.
-          docker cp -L llama-server:/usr/local/cuda-$CUDA_VERSION/targets/x86_64-linux/lib/libcublas.so.$CUDA_MAJOR_VERSION app/.
-          docker cp -L llama-server:/usr/local/cuda-$CUDA_VERSION/targets/x86_64-linux/lib/libcublasLt.so.$CUDA_MAJOR_VERSION app/.
+          docker cp -L llama-server:/usr/local/cuda-$CUDA_MAJOR_MINOR_VERSION/targets/x86_64-linux/lib/libcudart.so.$CUDA_MAJOR_VERSION app/.
+          docker cp -L llama-server:/usr/local/cuda-$CUDA_MAJOR_MINOR_VERSION/targets/x86_64-linux/lib/libcublas.so.$CUDA_MAJOR_VERSION app/.
+          docker cp -L llama-server:/usr/local/cuda-$CUDA_MAJOR_MINOR_VERSION/targets/x86_64-linux/lib/libcublasLt.so.$CUDA_MAJOR_VERSION app/.
+          docker cp -L llama-server:/lib/x86_64-linux-gnu/libnccl.so.2 app/.
 
       - name: Set $ORIGIN as RPATH for `llama-server` and shared libraries
         run: patchelf --set-rpath '$ORIGIN' app/llama-server app/*.so*
@@ -72,7 +77,7 @@ jobs:
       - name: Separate CUDA backend
         run: |
           mkdir cuda
-          mv app/libcudart* app/libcublas* app/libggml-cuda.so cuda/.
+          mv app/libcudart* app/libcublas* app/libnccl* app/libggml-cuda.so cuda/.
 
       - name: Pack llama-server
         run: |
